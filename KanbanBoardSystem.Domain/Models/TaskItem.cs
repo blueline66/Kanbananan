@@ -1,52 +1,64 @@
 using System;
+using KanbanBoardSystem.Domain.Common;
+using KanbanBoardSystem.Domain.Patterns.State;
 
 namespace KanbanBoardSystem.Domain.Models
 {
-    public class TaskItem : IDisposable
+    public class TaskItem : Entity, IDisposable
     {
         private bool _disposed = false;
 
-        public Guid Id { get; private set; }
         public string Title { get; set; }
         public string Description { get; set; }
-        public string Status { get; set; } 
-        public User? Assignee { get; set; } // Додали '?' (може бути порожнім)
+        
+        // Використовуємо інтерфейс стану замість звичайного рядка!
+        public ITaskState State { get; set; } 
+        public User? Assignee { get; set; }
 
         // Конструктор за замовчуванням
-        public TaskItem()
+        public TaskItem() : base()
         {
-            Id = Guid.NewGuid();
             Title = "Нове завдання";
             Description = string.Empty;
-            Status = "New";
+            State = new NewState(); // Початковий стан
             Assignee = null;
         }
 
         // Основний конструктор
-        public TaskItem(string title, string description, User? assignee)
+        public TaskItem(string title, string description, User? assignee) : base()
         {
-            Id = Guid.NewGuid();
             Title = string.IsNullOrWhiteSpace(title) ? throw new ArgumentException("Заголовок обов'язковий") : title;
             Description = description;
             Assignee = assignee;
-            Status = "New";
+            State = new NewState(); // Початковий стан
         }
 
         // Копіювальний конструктор
-        public TaskItem(TaskItem other)
+        public TaskItem(TaskItem other) : base()
         {
             if (other == null) throw new ArgumentNullException(nameof(other));
 
             Id = other.Id;
             Title = other.Title + " (Копія)";
             Description = other.Description;
-            Status = other.Status;
+            State = other.State; // Копіюємо поточний стан
             Assignee = other.Assignee != null ? new User(other.Assignee) : null;
         }
 
-        ~TaskItem()
+        // Метод для просування задачі вперед по канбан-дошці за допомогою патерну State
+        public void MoveNext()
         {
-            Dispose(false);
+            State.MoveToNext(this);
+        }
+
+        public virtual string GetDetails()
+        {
+            return $"[TASK] {Title}: {Description} (Статус: {State.Name})";
+        }
+
+        public override string ToString()
+        {
+            return $"{Title} (Користувач: {Assignee?.Name ?? "Немає"})";
         }
 
         public void Dispose()

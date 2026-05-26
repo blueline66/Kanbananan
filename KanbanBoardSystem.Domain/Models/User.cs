@@ -1,12 +1,11 @@
 using System;
+using KanbanBoardSystem.Domain.Common;
 
 namespace KanbanBoardSystem.Domain.Models
 {
-    public class User
+    public class User : Entity
     {
         private string _name = string.Empty; 
-
-        public Guid Id { get; private set; }
 
         public string Name
         {
@@ -20,16 +19,15 @@ namespace KanbanBoardSystem.Domain.Models
             }
         }
 
-        public User(string name)
+        public User(string name) : base() // Викликає конструктор Entity, де створюється Id та дата
         {
-            Id = Guid.NewGuid();
             Name = name; 
         }
 
-        public User(User other)
+        public User(User other) : base()
         {
             if (other == null) throw new ArgumentNullException(nameof(other));
-            Id = other.Id;
+            Id = other.Id; // Копіюємо Id старого юзера
             Name = other.Name;
         }
 

@@ -1,14 +1,13 @@
 using System;
 using System.Collections.Generic;
+using KanbanBoardSystem.Domain.Common;
 
 namespace KanbanBoardSystem.Domain.Models
 {
-    public class Epic
+    public class Epic : Entity
     {
         private readonly List<TaskItem> _subTasks = new List<TaskItem>();
-        private string _title = string.Empty; // Виправлено варнінг
-
-        public Guid Id { get; private set; }
+        private string _title = string.Empty; 
         
         public string Title
         {
@@ -21,9 +20,8 @@ namespace KanbanBoardSystem.Domain.Models
             }
         }
 
-        public Epic(string title)
+        public Epic(string title) : base()
         {
-            Id = Guid.NewGuid();
             Title = title;
         }
 
