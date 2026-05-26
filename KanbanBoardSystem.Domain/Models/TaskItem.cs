@@ -8,10 +8,11 @@ namespace KanbanBoardSystem.Domain.Models
     {
         private bool _disposed = false;
 
+        // РОЗДІЛ III: Подія для сповіщення форми (українською)
+        public event Action<TaskItem, string>? OnStateChanged;
+
         public string Title { get; set; }
         public string Description { get; set; }
-        
-        // Використовуємо інтерфейс стану замість звичайного рядка!
         public ITaskState State { get; set; } 
         public User? Assignee { get; set; }
 
@@ -41,19 +42,27 @@ namespace KanbanBoardSystem.Domain.Models
             Id = other.Id;
             Title = other.Title + " (Копія)";
             Description = other.Description;
-            State = other.State; // Копіюємо поточний стан
+            State = other.State; 
             Assignee = other.Assignee != null ? new User(other.Assignee) : null;
         }
 
-        // Метод для просування задачі вперед по канбан-дошці за допомогою патерну State
+        // Метод зміни стану з підтримкою українських DisplayName подій
         public void MoveNext()
         {
+            // 1. Запам'ятовуємо українську назву поточного стану
+            string oldStatusName = State.DisplayName;
+
+            // 2. Патерн State переводить задачу далі
             State.MoveToNext(this);
+
+            // 3. Смикаємо подію (тепер повністю українською)
+            OnStateChanged?.Invoke(this, $"Статус змінено з '{oldStatusName}' на '{State.DisplayName}'");
         }
 
+        // Виправлений метод: використовує DisplayName замість неіснуючого Name
         public virtual string GetDetails()
         {
-            return $"[TASK] {Title}: {Description} (Статус: {State.Name})";
+            return $"[TASK] {Title}: {Description} (Статус: {State.DisplayName})";
         }
 
         public override string ToString()

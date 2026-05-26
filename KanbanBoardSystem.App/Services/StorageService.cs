@@ -7,7 +7,6 @@ using KanbanBoardSystem.Domain.Patterns.State;
 
 namespace KanbanBoardSystem.App.Services
 {
-    
     public class TaskDto
     {
         public string Title { get; set; } = string.Empty;
@@ -16,7 +15,6 @@ namespace KanbanBoardSystem.App.Services
         public string AssigneeName { get; set; } = "Немає";
     }
 
-    
     public class BoardSnapshot
     {
         public List<string> Users { get; set; } = new List<string>();
@@ -27,7 +25,6 @@ namespace KanbanBoardSystem.App.Services
     {
         private static readonly string FilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "kanban.json");
 
-        
         public static void SaveBoard(List<string> users, List<TaskItem> allTasks)
         {
             var snapshot = new BoardSnapshot { Users = users };
@@ -38,7 +35,8 @@ namespace KanbanBoardSystem.App.Services
                 {
                     Title = task.Title,
                     Description = task.Description,
-                    StateName = task.State.Name,
+                    // Поставили кому в кінці наступного рядка, щоб синтаксис був ідеальним!
+                    StateName = task.State.GetType().Name.Replace("State", ""),
                     AssigneeName = task.Assignee?.Name ?? "Немає"
                 });
             }
@@ -47,7 +45,6 @@ namespace KanbanBoardSystem.App.Services
             File.WriteAllText(FilePath, json);
         }
 
-        
         public static BoardSnapshot? LoadBoard()
         {
             if (!File.Exists(FilePath)) return null;

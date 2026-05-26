@@ -1,14 +1,23 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using KanbanBoardSystem.Domain.Models;
 using KanbanBoardSystem.Domain.Patterns.State;
+using KanbanBoardSystem.Domain.Common;   
+using KanbanBoardSystem.Domain.Services; 
 using KanbanBoardSystem.App.Services;
+using KanbanBoardSystem.App.Infrastructure;
 
 namespace KanbanBoardSystem.App
 {
     public partial class Form1 : Form
     {
+        // Поля підключаються до створених у Domain сервісів
+        private readonly InMemRepository<TaskItem> _taskRepo = new InMemRepository<TaskItem>();
+        private readonly TaskService _taskService;
+
         private ListBox? lstNew;
         private ListBox? lstInProgress;
         private ListBox? lstDone;
@@ -16,6 +25,7 @@ namespace KanbanBoardSystem.App
         private TextBox? txtTitle;
         private TextBox? txtDescription;
         private ComboBox? cmbAssignees; 
+        private ComboBox? cmbTaskType; // РОЗДІЛ III: Вибір типу задачі для Фабрики
         private Button? btnAddTask;
         
         private TextBox? txtUserName;
@@ -23,18 +33,20 @@ namespace KanbanBoardSystem.App
 
         private Button? btnMoveToProgress;
         private Button? btnMoveToDone;
+        private Label? lblStats; 
 
         public Form1()
         {
             InitializeComponent();
+            _taskService = new TaskService(_taskRepo); // Зв'язуємо шари архітектури
             SetupLayout();
-            LoadData(); // Завантажуємо збережені дані замість демо-даних
+            LoadData(); 
         }
 
         private void InitializeComponent()
         {
             this.Text = "Канбан-дошка трекер завдань (ООП Практика 2026)";
-            this.Size = new System.Drawing.Size(880, 560);
+            this.Size = new System.Drawing.Size(880, 600);
             this.StartPosition = FormStartPosition.CenterScreen;
         }
 
@@ -49,14 +61,22 @@ namespace KanbanBoardSystem.App
 
             GroupBox grpTask = new GroupBox { Text = " Нове завдання ", Location = new System.Drawing.Point(20, 80), Size = new System.Drawing.Size(820, 65) };
             Label lblTitle = new Label { Text = "Назва:", Location = new System.Drawing.Point(15, 28), Size = new System.Drawing.Size(50, 20) };
-            txtTitle = new TextBox { Location = new System.Drawing.Point(65, 25), Size = new System.Drawing.Size(140, 20) };
-            Label lblDesc = new Label { Text = "Опис:", Location = new System.Drawing.Point(220, 28), Size = new System.Drawing.Size(45, 20) };
-            txtDescription = new TextBox { Location = new System.Drawing.Point(270, 25), Size = new System.Drawing.Size(180, 20) };
-            Label lblAssignee = new Label { Text = "Виконавець:", Location = new System.Drawing.Point(470, 28), Size = new System.Drawing.Size(80, 20) };
-            cmbAssignees = new ComboBox { Location = new System.Drawing.Point(555, 25), Size = new System.Drawing.Size(120, 20), DropDownStyle = ComboBoxStyle.DropDownList };
-            btnAddTask = new Button { Text = "🚀 Додати задачу", Location = new System.Drawing.Point(690, 23), Size = new System.Drawing.Size(115, 25) };
+            txtTitle = new TextBox { Location = new System.Drawing.Point(65, 25), Size = new System.Drawing.Size(120, 20) };
+            Label lblDesc = new Label { Text = "Опис:", Location = new System.Drawing.Point(195, 28), Size = new System.Drawing.Size(40, 20) };
+            txtDescription = new TextBox { Location = new System.Drawing.Point(240, 25), Size = new System.Drawing.Size(150, 20) };
+            
+            // РОЗДІЛ III: Додаємо вибір типу задачі на UI для Фабрики
+            Label lblType = new Label { Text = "Тип:", Location = new System.Drawing.Point(400, 28), Size = new System.Drawing.Size(35, 20) };
+            cmbTaskType = new ComboBox { Location = new System.Drawing.Point(435, 25), Size = new System.Drawing.Size(85, 20), DropDownStyle = ComboBoxStyle.DropDownList };
+            cmbTaskType.Items.AddRange(new string[] { "Звичайна задача", "Помилка", "Нова функція" });
+            cmbTaskType.SelectedIndex = 0;
+
+            Label lblAssignee = new Label { Text = "Виконавець:", Location = new System.Drawing.Point(530, 28), Size = new System.Drawing.Size(75, 20) };
+            cmbAssignees = new ComboBox { Location = new System.Drawing.Point(610, 25), Size = new System.Drawing.Size(100, 20), DropDownStyle = ComboBoxStyle.DropDownList };
+            btnAddTask = new Button { Text = "🚀 Додати", Location = new System.Drawing.Point(720, 23), Size = new System.Drawing.Size(85, 25) };
             btnAddTask.Click += BtnAddTask_Click;
-            grpTask.Controls.AddRange(new Control[] { lblTitle, txtTitle, lblDesc, txtDescription, lblAssignee, cmbAssignees, btnAddTask });
+            
+            grpTask.Controls.AddRange(new Control[] { lblTitle, txtTitle, lblDesc, txtDescription, lblType, cmbTaskType, lblAssignee, cmbAssignees, btnAddTask });
 
             Label lblNew = new Label { Text = "NEW (Нові)", Location = new System.Drawing.Point(20, 160), Font = new System.Drawing.Font("Arial", 10, System.Drawing.FontStyle.Bold) };
             lstNew = new ListBox { Location = new System.Drawing.Point(20, 180), Size = new System.Drawing.Size(260, 280) };
@@ -70,69 +90,96 @@ namespace KanbanBoardSystem.App
             btnMoveToDone = new Button { Text = "👉 Виконано", Location = new System.Drawing.Point(300, 475), Size = new System.Drawing.Size(260, 32) };
             btnMoveToDone.Click += BtnMoveToDone_Click;
 
-            this.Controls.AddRange(new Control[] { grpUser, grpTask, lblNew, lstNew, lblProgress, lstInProgress, lblDone, lstDone, btnMoveToProgress, btnMoveToDone });
+            lblStats = new Label { Location = new System.Drawing.Point(20, 525), Size = new System.Drawing.Size(820, 25), Font = new System.Drawing.Font("Arial", 9, System.Drawing.FontStyle.Italic), ForeColor = System.Drawing.Color.DarkSlateGray };
+
+            this.Controls.AddRange(new Control[] { grpUser, grpTask, lblNew, lstNew, lblProgress, lstInProgress, lblDone, lstDone, btnMoveToProgress, btnMoveToDone, lblStats });
         }
 
-        // Завантаження даних з JSON файлу
         private void LoadData()
         {
-            if (cmbAssignees == null || lstNew == null || lstInProgress == null || lstDone == null) return;
+            if (cmbAssignees == null) return;
 
             var snapshot = StorageService.LoadBoard();
 
             if (snapshot == null)
             {
-                // Якщо файлу немає, створюємо дефолтного юзера
                 cmbAssignees.Items.Add("Олексій");
                 cmbAssignees.SelectedIndex = 0;
+                RefreshScreenLists();
                 return;
             }
 
-            // Відновлюємо користувачів
-            foreach (var user in snapshot.Users)
-            {
-                cmbAssignees.Items.Add(user);
-            }
+            foreach (var user in snapshot.Users) cmbAssignees.Items.Add(user);
             if (cmbAssignees.Items.Count > 0) cmbAssignees.SelectedIndex = 0;
 
-            // Відновлюємо задачі та розкладаємо по колонках
             foreach (var dto in snapshot.Tasks)
             {
                 var task = new TaskItem(dto.Title, dto.Description, new User(dto.AssigneeName));
                 
-                // Штучно виставляємо потрібний стан
-                if (dto.StateName == "InProgress")
-                {
-                    task.State = new InProgressState();
-                    lstInProgress.Items.Add(task);
-                }
-                else if (dto.StateName == "Done")
-                {
-                    task.State = new DoneState();
-                    lstDone.Items.Add(task);
-                }
-                else
-                {
-                    task.State = new NewState();
-                    lstNew.Items.Add(task);
-                }
+                if (dto.StateName == "InProgress") task.State = new InProgressState();
+                else if (dto.StateName == "Done") task.State = new DoneState();
+                else task.State = new NewState();
+
+                // РОЗДІЛ III: Підписуємо завантажені таски на події сповіщення
+                task.OnStateChanged += (t, msg) => {
+                    MessageBox.Show($"🔔 Задача '{t.Title}': {msg}", "Повідомлення системи", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                };
+
+                _taskService.CreateTask(task);
             }
+
+            RefreshScreenLists();
         }
 
-        // Хелпер для збору всіх тасок з форми з метою збереження
-        private void TriggerSave()
+       // Заняття 7: Синхронізація списків через LINQ GroupBy (Українські ключі)
+private void RefreshScreenLists()
+{
+    if (lstNew == null || lstInProgress == null || lstDone == null) return;
+
+    lstNew.Items.Clear();
+    lstInProgress.Items.Clear();
+    lstDone.Items.Clear();
+
+    var groupedTasks = _taskService.GetTasksGroupedByStatus();
+
+    // Шукаємо по українським DisplayName, які повертають класи станів
+    if (groupedTasks.ContainsKey("Нова"))
+        foreach (var t in groupedTasks["Нова"]) lstNew.Items.Add(t);
+
+    if (groupedTasks.ContainsKey("В роботі"))
+        foreach (var t in groupedTasks["В роботі"]) lstInProgress.Items.Add(t);
+
+    if (groupedTasks.ContainsKey("Виконано"))
+        foreach (var t in groupedTasks["Виконано"]) lstDone.Items.Add(t);
+
+    UpdateMetrics();
+}
+
+        // Самостійна робота 5: Використання узагальненого алгоритму Reduce
+        private void UpdateMetrics()
         {
-            if (cmbAssignees == null || lstNew == null || lstInProgress == null || lstDone == null) return;
+            if (lblStats == null) return;
+
+            var tasks = _taskRepo.GetAll();
+            int totalDescCharacters = GenericAlgorithms.Reduce(tasks, 0, (currentSum, task) => currentSum + task.Description.Length);
+
+            lblStats.Text = $"📊 Статистика (Алгоритм Reduce): Загальний обсяг текстів описів усіх завдань — {totalDescCharacters} симв.";
+        }
+
+        // Самостійна робота 8: Асинхронне збереження через RetryPolicy
+        private async void TriggerSaveWithRetry()
+        {
+            if (cmbAssignees == null) return;
 
             var users = new List<string>();
             foreach (var item in cmbAssignees.Items) users.Add(item.ToString()!);
 
-            var allTasks = new List<TaskItem>();
-            foreach (var item in lstNew.Items) allTasks.Add((TaskItem)item);
-            foreach (var item in lstInProgress.Items) allTasks.Add((TaskItem)item);
-            foreach (var item in lstDone.Items) allTasks.Add((TaskItem)item);
+            var allTasks = _taskRepo.GetAll().ToList();
 
-            StorageService.SaveBoard(users, allTasks);
+            await RetryPolicy.ExecuteWithRetryAsync(async () =>
+            {
+                await Task.Run(() => StorageService.SaveBoard(users, allTasks));
+            }, maxRetries: 3);
         }
 
         private void BtnCreateUser_Click(object? sender, EventArgs e)
@@ -145,7 +192,7 @@ namespace KanbanBoardSystem.App
                 cmbAssignees.Items.Add(newUser.Name);
                 cmbAssignees.SelectedItem = newUser.Name;
                 txtUserName.Clear();
-                TriggerSave(); // Хранилище оновлено
+                TriggerSaveWithRetry(); 
             }
             catch (Exception ex)
             {
@@ -155,7 +202,7 @@ namespace KanbanBoardSystem.App
 
         private void BtnAddTask_Click(object? sender, EventArgs e)
         {
-            if (txtTitle == null || txtDescription == null || lstNew == null || cmbAssignees == null) return;
+            if (txtTitle == null || txtDescription == null || cmbAssignees == null || cmbTaskType == null) return;
 
             if (string.IsNullOrWhiteSpace(txtTitle.Text))
             {
@@ -164,50 +211,55 @@ namespace KanbanBoardSystem.App
             }
 
             string selectedName = cmbAssignees.SelectedItem?.ToString() ?? "Анонім";
-            var newTask = new TaskItem(txtTitle.Text, txtDescription.Text, new User(selectedName));
-            lstNew.Items.Add(newTask);
+            string taskType = cmbTaskType.SelectedItem?.ToString() ?? "Task";
+
+            // РОЗДІЛ III: Використовуємо паттерн Фабрика для генерації об'єкта
+            var newTask = KanbanBoardSystem.Domain.Factories.TaskFactory.CreateTask(taskType, txtTitle.Text, txtDescription.Text, new User(selectedName));
+            
+            // РОЗДІЛ III: Підписуємо нову таску на подію
+            newTask.OnStateChanged += (t, msg) => {
+                MessageBox.Show($"🔔 Задача '{t.Title}': {msg}", "Повідомлення системи", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            };
+
+            _taskService.CreateTask(newTask);
 
             txtTitle.Clear();
             txtDescription.Clear();
-            TriggerSave(); // Зберігаємо нову таску
+            
+            RefreshScreenLists();
+            TriggerSaveWithRetry(); 
         }
 
         private void BtnMoveToProgress_Click(object? sender, EventArgs e)
         {
-            if (lstNew == null || lstInProgress == null) return;
-
-            if (lstNew.SelectedItem is TaskItem selectedTask)
+            if (lstNew?.SelectedItem is TaskItem selectedTask)
             {
                 try
                 {
-                    lstNew.Items.Remove(selectedTask);
-                    selectedTask.MoveNext(); 
-                    lstInProgress.Items.Add(selectedTask);
-                    TriggerSave(); // Зберігаємо зміну стану
+                    selectedTask.MoveNext(); // Тут автоматично вистрілить наша подія (Event)
+                    RefreshScreenLists();    
+                    TriggerSaveWithRetry(); 
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(ex.Message, "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show(ex.Message, "Помилка зміни стану", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
         }
 
         private void BtnMoveToDone_Click(object? sender, EventArgs e)
         {
-            if (lstInProgress == null || lstDone == null) return;
-
-            if (lstInProgress.SelectedItem is TaskItem selectedTask)
+            if (lstInProgress?.SelectedItem is TaskItem selectedTask)
             {
                 try
                 {
-                    lstInProgress.Items.Remove(selectedTask);
-                    selectedTask.MoveNext(); 
-                    lstDone.Items.Add(selectedTask);
-                    TriggerSave(); // Зберігаємо зміну стану
+                    selectedTask.MoveNext(); // Тут автоматично вистрілить наша подія (Event)
+                    RefreshScreenLists();    
+                    TriggerSaveWithRetry(); 
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(ex.Message, "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show(ex.Message, "Помилка зміни стану", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
         }
