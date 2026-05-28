@@ -97,12 +97,13 @@ namespace KanbanBoardSystem.Tests
         [Fact]
         public void Test10_GetDetails_ShouldReturnValidFormat()
         {
-            var task = new TaskItem("Тест", "Опис завдання", null);
-            var details = task.GetDetails();
+         var user = new User("Тестовий Користувач");
+        var task = new TaskItem("Тест", "Опис завдання", user);
 
-            // Перевіряємо те, що точно є в твоєму рядку [TASK] Тест: Опис завдання...
-            Assert.Contains("Тест", details);
-            Assert.Contains("Опис завдання", details);
+        string details = task.GetDetails();
+
+        Assert.Contains("Тест", details);
+        Assert.Contains("Середній", details);
         }
     }
 }

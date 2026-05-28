@@ -13,6 +13,10 @@ namespace KanbanBoardSystem.App.Services
         public string Description { get; set; } = string.Empty;
         public string StateName { get; set; } = "New";
         public string AssigneeName { get; set; } = "Немає";
+
+        // НОВІ ПОЛЯ ДЛЯ ПІДТРИМКИ ДЕДЛАЙНІВ ТА ВАЖЛИВОСТІ
+        public DateTime Deadline { get; set; }
+        public string Priority { get; set; } = "Середній";
     }
 
     public class BoardSnapshot
@@ -35,9 +39,12 @@ namespace KanbanBoardSystem.App.Services
                 {
                     Title = task.Title,
                     Description = task.Description,
-                    // Поставили кому в кінці наступного рядка, щоб синтаксис був ідеальним!
                     StateName = task.State.GetType().Name.Replace("State", ""),
-                    AssigneeName = task.Assignee?.Name ?? "Немає"
+                    AssigneeName = task.Assignee?.Name ?? "Немає",
+                    
+                    // ЗБЕРІГАЄМО НОВІ ДАНІ У ФАЙЛ JSON
+                    Deadline = task.Deadline,
+                    Priority = task.Priority
                 });
             }
 

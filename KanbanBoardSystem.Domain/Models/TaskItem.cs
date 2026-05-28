@@ -8,7 +8,6 @@ namespace KanbanBoardSystem.Domain.Models
     {
         private bool _disposed = false;
 
-        // РОЗДІЛ III: Подія для сповіщення форми (українською)
         public event Action<TaskItem, string>? OnStateChanged;
 
         public string Title { get; set; }
@@ -16,25 +15,25 @@ namespace KanbanBoardSystem.Domain.Models
         public ITaskState State { get; set; } 
         public User? Assignee { get; set; }
 
-        // Конструктор за замовчуванням
+        
+        public string Priority { get; set; } = "Середній"; 
+
         public TaskItem() : base()
         {
             Title = "Нове завдання";
             Description = string.Empty;
-            State = new NewState(); // Початковий стан
+            State = new NewState(); 
             Assignee = null;
         }
 
-        // Основний конструктор
         public TaskItem(string title, string description, User? assignee) : base()
         {
             Title = string.IsNullOrWhiteSpace(title) ? throw new ArgumentException("Заголовок обов'язковий") : title;
             Description = description;
             Assignee = assignee;
-            State = new NewState(); // Початковий стан
+            State = new NewState(); 
         }
 
-        // Копіювальний конструктор
         public TaskItem(TaskItem other) : base()
         {
             if (other == null) throw new ArgumentNullException(nameof(other));
@@ -43,26 +42,24 @@ namespace KanbanBoardSystem.Domain.Models
             Title = other.Title + " (Копія)";
             Description = other.Description;
             State = other.State; 
+            Priority = other.Priority; 
             Assignee = other.Assignee != null ? new User(other.Assignee) : null;
         }
 
-        // Метод зміни стану з підтримкою українських DisplayName подій
         public void MoveNext()
         {
-            // 1. Запам'ятовуємо українську назву поточного стану
             string oldStatusName = State.DisplayName;
 
-            // 2. Патерн State переводить задачу далі
             State.MoveToNext(this);
 
-            // 3. Смикаємо подію (тепер повністю українською)
             OnStateChanged?.Invoke(this, $"Статус змінено з '{oldStatusName}' на '{State.DisplayName}'");
         }
 
-        // Виправлений метод: використовує DisplayName замість неіснуючого Name
+        public DateTime Deadline { get; set; } = DateTime.Now.AddDays(3);
+        
         public virtual string GetDetails()
         {
-            return $"[TASK] {Title}: {Description} (Статус: {State.DisplayName})";
+            return $"[{State.GetType().Name.Replace("State", "")}] {Title} (Важливість: {Priority}, До: {Deadline.ToShortDateString()})";
         }
 
         public override string ToString()
@@ -82,6 +79,7 @@ namespace KanbanBoardSystem.Domain.Models
             {
                 if (disposing)
                 {
+                   
                 }
                 _disposed = true;
             }

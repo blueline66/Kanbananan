@@ -41,6 +41,8 @@
 2. Запусти програму через консоль з кореневої папки:
    ```bash
    dotnet run --project KanbanBoardSystem.App
+## Вигляд програми
+![alt text](image-2.png)
 
 ## Діаграма
 ![alt text](image.png)
